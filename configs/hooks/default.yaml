@@ -1,0 +1,19 @@
+enabled_hooks:
+  - observation_input
+  - prefix_final_hidden_state
+  - final_action_chunk
+  - raw_attention_weights
+  - token_spans
+
+raw_attention_weights:
+  layers: null
+  heads: null
+
+prefix_gradients:
+  enabled: false
+  num_samples: 8
+
+recording:
+  save_inputs: true
+  save_outputs: true
+  save_hooks: true

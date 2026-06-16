@@ -1,0 +1,6 @@
+[submodule "external/openpi-pi05-hooks"]
+	path = external/openpi-pi05-hooks
+	url = https://github.com/iqr-lab/openpi-pi05-hooks
+[submodule "external/openpi-pi0fast-hooks"]
+	path = external/openpi-pi0fast-hooks
+	url = https://github.com/iqr-lab/openpi-pi0fast-hooks

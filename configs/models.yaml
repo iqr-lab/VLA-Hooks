@@ -1,0 +1,10 @@
+models:
+  pi0fast:
+    repo: external/openpi-pi0fast-hooks
+    serve_policy: scripts/serve_policy.py
+    default_policy_config: pi0_fast_libero
+
+  pi05:
+    repo: external/openpi-pi05-hooks
+    serve_policy: scripts/serve_policy.py
+    default_policy_config: pi05_libero

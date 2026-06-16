@@ -1,0 +1,18 @@
+name: pi05_libero_test
+model: pi05
+
+policy_config: pi05_libero
+checkpoint: /nfs/roberts/scratch/pi_tkf6/zs377/checkpoints/pi05_libero/29999
+
+env: LIBERO
+task_suite: libero_10
+num_trials: 1
+
+port: 21000
+host: 127.0.0.1
+
+hook_config: configs/hooks/default.yaml
+record_root: records
+log_root: logs
+
+use_apptainer: true
