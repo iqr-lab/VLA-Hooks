@@ -12,7 +12,7 @@ port: 21000
 host: 127.0.0.1
 
 hook_config: configs/hooks/default.yaml
-record_root: records
+record_root: /nfs/roberts/scratch/pi_tkf6/as4643/policy_records
 log_root: logs
 
 use_apptainer: true
