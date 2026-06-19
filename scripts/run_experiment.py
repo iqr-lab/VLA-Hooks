@@ -3,7 +3,7 @@
 import argparse
 
 from recorder.run import run_experiment
-
+from recorder.slurm import submit_sbatch
 
 def main():
     parser = argparse.ArgumentParser()
@@ -22,14 +22,23 @@ def main():
         default="configs/containers.yaml",
         help="Path to containers YAML",
     )
+    parser.add_argument(
+        "--sbatch",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
-    run_experiment(
-        experiment_path=args.experiment,
-        models_path=args.models,
-        containers_path=args.containers,
-    )
+    if args.sbatch:
+        submit_sbatch(
+            experiment_path=args.experiment,
+        )
+    else:
+        run_experiment(
+            experiment_path=args.experiment,
+            models_path=args.models,
+            containers_path=args.containers,
+        )
 
 
 if __name__ == "__main__":
