@@ -5,6 +5,15 @@ from recorder.paths import resolve_path
 from recorder.process import ManagedProcess
 
 
+def build_mount_args(containers_cfg: dict[str, Any]) -> list[str]:
+    mount_args: list[str] = []
+
+    for mount in containers_cfg.get("mounts", []):
+        mount_args.extend(["--bind", f"{mount}:{mount}"])
+
+    return mount_args
+
+
 def build_server_command(
     *,
     exp: dict[str, Any],
@@ -54,7 +63,6 @@ def build_server_command(
         return inner_command, repo_path
 
     server_sif = containers_cfg["server_sif"]
-    scratch_root = containers_cfg["scratch_root"]
     pythonpath = containers_cfg["pythonpath"]
 
     command = [
@@ -65,9 +73,8 @@ def build_server_command(
         "--bind",
         f"{repo_path}:/app",
         "--bind",
-        f"{scratch_root}:{scratch_root}",
-        "--bind",
         f"{hook_config}:/app/hooks.yaml",
+        *build_mount_args(containers_cfg),
         server_sif,
         "bash",
         "-c",

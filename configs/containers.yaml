@@ -3,6 +3,8 @@ use_apptainer: true
 server_sif: /nfs/roberts/project/pi_tkf6/as4643/openpi_server.sif
 libero_sif: /nfs/roberts/project/pi_tkf6/as4643/libero.sif
 
-scratch_root: /nfs/roberts/scratch
-
 pythonpath: /app/src:/app/third_party/libero:/app/packages/openpi-client/src
+
+mounts:
+  - /nfs/roberts/scratch
+  - /nfs/roberts/project

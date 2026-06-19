@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from recorder.paths import resolve_path
+from recorder.server import build_mount_args
 
 
 def build_libero_command(
@@ -42,7 +43,6 @@ def build_libero_command(
         return command, repo_path
 
     libero_sif = containers_cfg["libero_sif"]
-    scratch_root = containers_cfg["scratch_root"]
     pythonpath = containers_cfg["pythonpath"]
 
     command = [
@@ -52,8 +52,7 @@ def build_libero_command(
         "--containall",
         "--bind",
         f"{repo_path}:/app",
-        "--bind",
-        f"{scratch_root}:{scratch_root}",
+        *build_mount_args(containers_cfg),
         libero_sif,
         "bash",
         "-c",

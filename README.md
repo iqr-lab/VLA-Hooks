@@ -1,17 +1,25 @@
 # openpi-inference-recorder
 
-This repo runs inference for OpenPI-based policies and records policy outputs / hook data.
+This repo runs inference for OpenPI-based policies and records policy outputs and hook data.
 
-No model code is in this repo. It lives in the submodules:
+No model code lives in this repository. Model implementations are included as git submodules:
 
-- `external/openpi-pi05-hooks`
-- `external/openpi-pi0fast-hooks`
+* `external/openpi-pi05-hooks`
+* `external/openpi-pi0fast-hooks`
 
-The runner can launch either model repo, start `serve_policy.py`, run LIBERO evaluation, and save recorded outputs to a configured record directory.
+The runner can:
+
+* Launch either model repo
+* Start `serve_policy.py`
+* Run LIBERO evaluation
+* Record policy outputs
+* Save hook outputs
+* Store logs and rollout artifacts
+* Optionally submit runs through Slurm
 
 ---
 
-## Repo structure
+# Repository Structure
 
 ```text
 openpi-inference-recorder/
@@ -24,9 +32,11 @@ openpi-inference-recorder/
 │   └── experiments/
 │       ├── pi05_libero.yaml
 │       └── pi0fast_libero.yaml
+│
 ├── external/
 │   ├── openpi-pi05-hooks/
 │   └── openpi-pi0fast-hooks/
+│
 ├── recorder/
 │   ├── config.py
 │   ├── paths.py
@@ -35,15 +45,19 @@ openpi-inference-recorder/
 │   ├── libero.py
 │   ├── slurm.py
 │   └── run.py
+│
 └── scripts/
     └── run_experiment.py
 ```
 
-## 1. Clone Setup
+---
 
-After cloning the repo:
+# 1. Clone Setup
+
+Clone the repository:
 
 ```bash
+git clone <repo_url>
 cd openpi-inference-recorder
 ```
 
@@ -53,19 +67,22 @@ Initialize submodules:
 git submodule update --init --recursive
 ```
 
-Create a python environment:
+Create a lightweight Python environment:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
 pip install -e .
 ```
 
-This environment does not hold openpi or libero dependencies. They're expected in the `.sif` containers.
+This environment only contains orchestration code.
+
+OpenPI, LIBERO, JAX, CUDA, and related dependencies are expected to be provided by the configured `.sif` containers.
 
 ---
 
-## 2. Configure containers
+# 2. Configure Containers
 
 Edit:
 
@@ -81,24 +98,71 @@ use_apptainer: true
 server_sif: /absolute/path/to/openpi_server.sif
 libero_sif: /absolute/path/to/libero.sif
 
-scratch_root: /nfs/roberts/scratch
-
 pythonpath: /app/src:/app/third_party/libero:/app/packages/openpi-client/src
+
+mounts:
+  - /path/to/checkpoints
+  - /path/to/recordings
 ```
 
-### Options
+## Container Configuration Options
 
-| Field           | Meaning                                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `use_apptainer` | Whether to run inside `.sif` containers. Usually `true` on the cluster.                                                           |
-| `server_sif`    | SIF image used to run `scripts/serve_policy.py`.                                                                                  |
-| `libero_sif`    | SIF image used to run LIBERO evaluation.                                                                                          |
-| `scratch_root`  | Scratch filesystem mounted into the container. Record dirs should usually live here.                                              |
-| `pythonpath`    | Python path used inside the container. Usually should stay as `/app/src:/app/third_party/libero:/app/packages/openpi-client/src`. |
+| Field           | Meaning                                                                 |
+| --------------- | ----------------------------------------------------------------------- |
+| `use_apptainer` | Whether to run inside `.sif` containers. Usually `true` on a cluster.   |
+| `server_sif`    | SIF image used to run `scripts/serve_policy.py`.                        |
+| `libero_sif`    | SIF image used to run LIBERO evaluation.                                |
+| `pythonpath`    | Python path used inside the container. Usually should remain unchanged. |
+| `mounts`        | List of filesystem paths that should be visible inside the container.   |
+
+## What are mounts?
+
+Containers cannot automatically access files on the host machine.
+
+The `mounts` field tells Apptainer which directories should be shared with the container.
+
+Example:
+
+```yaml
+mounts:
+  - /nfs/roberts/scratch
+  - /nfs/roberts/project
+```
+
+This allows the container to access files stored under:
+
+```text
+/nfs/roberts/scratch
+/nfs/roberts/project
+```
+
+Any path referenced by:
+
+* checkpoints
+* datasets
+* recordings
+* output directories
+
+should be included in `mounts`.
+
+For example:
+
+```yaml
+checkpoint: /data/checkpoints/pi05/29999
+
+record_root: /data/policy_records
+```
+
+requires:
+
+```yaml
+mounts:
+  - /data
+```
 
 ---
 
-## 3. Configure model repos
+# 3. Configure Model Repositories
 
 Edit:
 
@@ -121,28 +185,29 @@ models:
     default_policy_config: pi05_libero
 ```
 
-### Options
+## Model Configuration Options
 
-| Field                   | Meaning                                           |
-| ----------------------- | ------------------------------------------------- |
-| `repo`                  | Path to the model repo/submodule.                 |
-| `serve_policy`          | Path to `serve_policy.py` inside that repo.       |
-| `default_policy_config` | Default OpenPI policy config name for that model. |
+| Field                   | Meaning                                                |
+| ----------------------- | ------------------------------------------------------ |
+| `repo`                  | Path to the model submodule.                           |
+| `serve_policy`          | Path to `serve_policy.py` inside the model repository. |
+| `default_policy_config` | Default OpenPI policy configuration for the model.     |
 
 ---
 
-## 4. Configure an experiment
+# 4. Configure Experiments
 
-Experiment configs live in:
+Experiment configurations live in:
 
 ```bash
 configs/experiments/
 ```
 
-Example `configs/experiments/pi05_libero.yaml`:
+## Example: Pi0.5
 
 ```yaml
 name: pi05_libero
+
 model: pi05
 
 policy_config: pi05_libero
@@ -157,16 +222,17 @@ host: 127.0.0.1
 
 hook_config: configs/hooks/default.yaml
 
-record_root: /nfs/roberts/scratch/pi_tkf6/as4643/policy_records
+record_root: /path/to/policy_records
 log_root: logs
 
 use_apptainer: true
 ```
 
-Example `configs/experiments/pi0fast_libero.yaml`:
+## Example: Pi0 Fast
 
 ```yaml
 name: pi0fast_libero
+
 model: pi0fast
 
 policy_config: pi0_fast_libero
@@ -181,49 +247,63 @@ host: 127.0.0.1
 
 hook_config: configs/hooks/default.yaml
 
-record_root: /nfs/roberts/scratch/pi_tkf6/as4643/policy_records
+record_root: /path/to/policy_records
 log_root: logs
 
 use_apptainer: true
 ```
 
-### Options
+## Experiment Configuration Options
 
-| Field           | Meaning                                                                                       |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| `name`          | Name used for output folders. A timestamp is appended automatically.                          |
-| `model`         | Which model repo to use. Must match a key in `configs/models.yaml`, e.g. `pi05` or `pi0fast`. |
-| `policy_config` | OpenPI policy config passed to `--policy.config`.                                             |
-| `checkpoint`    | Checkpoint directory passed to `--policy.dir`.                                                |
-| `env`           | Environment passed to `serve_policy.py`. Usually `LIBERO`.                                    |
-| `task_suite`    | LIBERO task suite, e.g. `libero_10`, `libero_spatial`, `libero_object`, `libero_goal`.        |
-| `num_trials`    | Number of trials per LIBERO task.                                                             |
-| `port`          | Port used by the policy server.                                                               |
-| `host`          | Host used by the LIBERO client. Usually `127.0.0.1`.                                          |
-| `hook_config`   | Hook YAML mounted into the server container.                                                  |
-| `record_root`   | Parent directory for recorded outputs. Use scratch, not project storage.                      |
-| `log_root`      | Parent directory for logs.                                                                    |
-| `use_apptainer` | Experiment-level override for container mode.                                                 |
+| Field           | Meaning                                                                   |
+| --------------- | ------------------------------------------------------------------------- |
+| `name`          | Name used for output directories.                                         |
+| `model`         | Model key from `configs/models.yaml`.                                     |
+| `policy_config` | OpenPI policy configuration passed to `--policy.config`.                  |
+| `checkpoint`    | Checkpoint directory passed to `--policy.dir`.                            |
+| `env`           | Environment name passed to `serve_policy.py`.                             |
+| `task_suite`    | LIBERO task suite.                                                        |
+| `num_trials`    | Number of evaluation rollouts per task.                                   |
+| `port`          | Policy server port.                                                       |
+| `host`          | Policy server host.                                                       |
+| `hook_config`   | Hook configuration file.                                                  |
+| `record_root`   | Parent directory for recordings. Must be accessible inside the container. |
+| `log_root`      | Parent directory for logs.                                                |
+| `use_apptainer` | Experiment-level override for container mode.                             |
 
-The final output paths look like:
+Supported task suites depend on the underlying LIBERO version but commonly include:
+
+```text
+libero_spatial
+libero_object
+libero_goal
+libero_10
+libero_90
+```
+
+---
+
+# Output Directories
+
+Timestamped directories are automatically created:
 
 ```text
 record_root/name_YYYYMMDD_HHMMSS
 log_root/name_YYYYMMDD_HHMMSS
 ```
 
-For example:
+Example:
 
 ```text
-/nfs/roberts/scratch/pi_tkf6/as4643/policy_records/pi05_libero_20260618_203423
+/path/to/policy_records/pi05_libero_20260618_203423
 logs/pi05_libero_20260618_203423
 ```
 
 ---
 
-## 5. Configure hooks
+# 5. Configure Hooks
 
-Hook configs live in:
+Hook configurations live in:
 
 ```bash
 configs/hooks/
@@ -253,26 +333,31 @@ recording:
   save_hooks: true
 ```
 
-The available hooks depend on what the model submodule supports.
+Available hooks depend on what is implemented in the selected model repository.
 
 ---
 
-## 6. Run interactively
+# 6. Run Interactively
 
-Request an interactive GPU session:
+Request an interactive GPU allocation:
 
 ```bash
-salloc --partition=scavenge_gpu --gpus=1 --cpus-per-task=4 --mem=256G --time=4:00:00
+salloc \
+  --partition=scavenge_gpu \
+  --gpus=1 \
+  --cpus-per-task=4 \
+  --mem=256G \
+  --time=4:00:00
 ```
 
-Then run:
+Run Pi0.5:
 
 ```bash
 python scripts/run_experiment.py \
   --experiment configs/experiments/pi05_libero.yaml
 ```
 
-or:
+Run Pi0 Fast:
 
 ```bash
 python scripts/run_experiment.py \
@@ -281,9 +366,9 @@ python scripts/run_experiment.py \
 
 ---
 
-## 7. Submit with sbatch
+# 7. Submit Through Slurm
 
-If Slurm submission support is enabled, configure:
+Configure:
 
 ```bash
 configs/slurm.yaml
@@ -299,7 +384,7 @@ mem: 256G
 time: "4:00:00"
 ```
 
-Submit:
+Submit a job:
 
 ```bash
 python scripts/run_experiment.py \
@@ -307,7 +392,7 @@ python scripts/run_experiment.py \
   --sbatch
 ```
 
-or:
+or
 
 ```bash
 python scripts/run_experiment.py \
@@ -315,11 +400,13 @@ python scripts/run_experiment.py \
   --sbatch
 ```
 
-The sbatch wrapper calls the same runner inside the job. It does not recursively submit another job.
+The generated Slurm job invokes the same runner within the allocation.
 
 ---
 
-## 8. CLI options
+# 8. CLI Options
+
+View help:
 
 ```bash
 python scripts/run_experiment.py --help
@@ -327,31 +414,61 @@ python scripts/run_experiment.py --help
 
 Main options:
 
-| Option         | Meaning                                                                      |
-| -------------- | ---------------------------------------------------------------------------- |
-| `--experiment` | Path to experiment YAML. Required.                                           |
-| `--models`     | Path to model config YAML. Default: `configs/models.yaml`.                   |
-| `--containers` | Path to container config YAML. Default: `configs/containers.yaml`.           |
-| `--sbatch`     | Submit the run as a Slurm job instead of running immediately.                |
-| `--slurm`      | Path to Slurm config YAML, if implemented. Default: `configs/slurm.yaml`.    |
-| `--dry-run`    | Print the generated Slurm script/command without submitting, if implemented. |
+| Option         | Meaning                                          |
+| -------------- | ------------------------------------------------ |
+| `--experiment` | Path to experiment YAML. Required.               |
+| `--models`     | Path to model configuration YAML.                |
+| `--containers` | Path to container configuration YAML.            |
+| `--sbatch`     | Submit via Slurm instead of running immediately. |
+| `--slurm`      | Path to Slurm configuration file.                |
+| `--dry-run`    | Print generated Slurm script without submitting. |
 
 ---
 
-## 9. What the runner does
+# 9. Execution Flow
 
-For each experiment, the runner:
+For each experiment the runner:
 
-1. Loads experiment config.
-2. Loads model config.
-3. Loads container config.
-4. Creates timestamped record/log directories.
-5. Starts the selected model server:
-
-   * `external/openpi-pi05-hooks/scripts/serve_policy.py`, or
-   * `external/openpi-pi0fast-hooks/scripts/serve_policy.py`
-6. Waits until the server is ready.
-7. Runs LIBERO evaluation against the server.
-8. Saves records to `record_dir`.
-9. Saves logs to `log_dir`.
+1. Loads experiment configuration.
+2. Loads model configuration.
+3. Loads container configuration.
+4. Creates timestamped output directories.
+5. Starts the selected policy server.
+6. Waits for server readiness.
+7. Runs LIBERO evaluation.
+8. Saves recordings.
+9. Saves logs.
 10. Stops the server.
+
+Policy servers are launched from:
+
+```text
+external/openpi-pi05-hooks/scripts/serve_policy.py
+```
+
+or
+
+```text
+external/openpi-pi0fast-hooks/scripts/serve_policy.py
+```
+
+depending on the selected model.
+
+---
+
+# 10. Updating Submodules
+
+Pull latest model code:
+
+```bash
+git submodule update --remote --merge
+```
+
+Commit updated submodule references:
+
+```bash
+git add external/openpi-pi05-hooks
+git add external/openpi-pi0fast-hooks
+
+git commit -m "Update OpenPI submodules"
+```
