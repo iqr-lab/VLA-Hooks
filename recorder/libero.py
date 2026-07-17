@@ -54,7 +54,7 @@ def build_libero_command(
             command = ["python", "-u", eval_script, *openvla_args]
             return command, repo_path
 
-        libero_sif = containers_cfg["libero_sif"]
+        libero_sif = model_cfg.get("sif", containers_cfg["libero_sif"])
         pythonpath = model_cfg.get("pythonpath", containers_cfg["pythonpath"])
         libero_repo = model_cfg.get("libero_repo")
         libero_bind_args = []
