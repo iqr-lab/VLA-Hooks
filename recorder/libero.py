@@ -56,6 +56,18 @@ def build_libero_command(
 
         libero_sif = model_cfg.get("sif", containers_cfg["libero_sif"])
         pythonpath = model_cfg.get("pythonpath", containers_cfg["pythonpath"])
+        cache_dir = model_cfg.get("cache_dir", containers_cfg.get("cache_dir"))
+        cache_cmd = []
+        if cache_dir:
+            cache_cmd = [
+                f"mkdir -p {cache_dir}/huggingface/hub {cache_dir}/huggingface/transformers {cache_dir}/huggingface/xet {cache_dir}/torch {cache_dir}/xdg &&",
+                f"export HF_HOME={cache_dir}/huggingface &&",
+                f"export HF_HUB_CACHE={cache_dir}/huggingface/hub &&",
+                f"export TRANSFORMERS_CACHE={cache_dir}/huggingface/transformers &&",
+                f"export HF_XET_CACHE={cache_dir}/huggingface/xet &&",
+                f"export TORCH_HOME={cache_dir}/torch &&",
+                f"export XDG_CACHE_HOME={cache_dir}/xdg &&",
+            ]
         libero_repo = model_cfg.get("libero_repo")
         libero_bind_args = []
         libero_config_cmd = []
@@ -104,6 +116,7 @@ def build_libero_command(
                     "export CUDA_VISIBLE_DEVICES=0 &&",
                     "export PYTHONUNBUFFERED=1 &&",
                     "export PYTHONFAULTHANDLER=1 &&",
+                    *cache_cmd,
                     *libero_config_cmd,
                     "export MUJOCO_GL=osmesa &&",
                     "export PYOPENGL_PLATFORM=osmesa &&",
