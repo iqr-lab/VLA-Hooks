@@ -67,7 +67,9 @@ def build_libero_command(
                 pythonpath_parts.append(libero_container_path)
             pythonpath = ":".join(pythonpath_parts)
 
-            benchmark_root = f"{libero_container_path}/libero"
+            benchmark_root = model_cfg.get(
+                "libero_benchmark_root", f"{libero_container_path}/libero"
+            )
             libero_bind_args = ["--bind", f"{libero_repo_path}:{libero_container_path}"]
             libero_config_cmd = [
                 "mkdir -p /tmp/libero &&",
