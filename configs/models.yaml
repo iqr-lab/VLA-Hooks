@@ -15,3 +15,5 @@ models:
     eval_script: experiments/robot/libero/run_libero_eval.py
     default_policy_config: openvla
     pythonpath: /app
+    libero_repo: external/openpi-pi05-hooks/third_party/libero/libero
+    libero_container_path: /libero

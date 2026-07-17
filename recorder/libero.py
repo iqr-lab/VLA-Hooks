@@ -56,6 +56,30 @@ def build_libero_command(
 
         libero_sif = containers_cfg["libero_sif"]
         pythonpath = model_cfg.get("pythonpath", containers_cfg["pythonpath"])
+        libero_repo = model_cfg.get("libero_repo")
+        libero_bind_args = []
+        libero_config_cmd = []
+        if libero_repo:
+            libero_repo_path = resolve_path(libero_repo)
+            libero_container_path = model_cfg.get("libero_container_path", "/libero")
+            pythonpath_parts = [part for part in pythonpath.split(":") if part]
+            if libero_container_path not in pythonpath_parts:
+                pythonpath_parts.append(libero_container_path)
+            pythonpath = ":".join(pythonpath_parts)
+
+            benchmark_root = f"{libero_container_path}/libero"
+            libero_bind_args = ["--bind", f"{libero_repo_path}:{libero_container_path}"]
+            libero_config_cmd = [
+                "mkdir -p /tmp/libero &&",
+                "printf '%s\\n'",
+                f"'benchmark_root: {benchmark_root}'",
+                f"'bddl_files: {benchmark_root}/./bddl_files'",
+                f"'init_states: {benchmark_root}/./init_files'",
+                f"'datasets: {benchmark_root}/../datasets'",
+                f"'assets: {benchmark_root}/./assets'",
+                "> /tmp/libero/config.yaml &&",
+                "export LIBERO_CONFIG_PATH=/tmp/libero &&",
+            ]
 
         command = [
             "apptainer",
@@ -66,6 +90,7 @@ def build_libero_command(
             f"{repo_path}:/app",
             "--bind",
             f"{hook_config}:/app/hooks.yaml",
+            *libero_bind_args,
             *build_mount_args(containers_cfg),
             libero_sif,
             "bash",
@@ -77,9 +102,10 @@ def build_libero_command(
                     "export CUDA_VISIBLE_DEVICES=0 &&",
                     "export PYTHONUNBUFFERED=1 &&",
                     "export PYTHONFAULTHANDLER=1 &&",
+                    *libero_config_cmd,
                     "export MUJOCO_GL=osmesa &&",
                     "export PYOPENGL_PLATFORM=osmesa &&",
-                    "/.venv/bin/python -u experiments/robot/libero/run_libero_eval.py",
+                    "/opt/conda/envs/openvla-oft/bin/python -u experiments/robot/libero/run_libero_eval.py",
                     f"--pretrained_checkpoint {checkpoint}",
                     f"--task_suite_name {task_suite}",
                     f"--num_trials_per_task {num_trials}",
@@ -186,11 +212,20 @@ def run_libero_eval(
     print(f"Logging to: {eval_log}")
 
     with eval_log.open("w") as f:
-        subprocess.run(
-            command,
-            cwd=cwd,
-            stdout=f,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                command,
+                cwd=cwd,
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            print(f"LIBERO command failed. Last lines from {eval_log}:")
+            try:
+                lines = eval_log.read_text(errors="replace").splitlines()
+                print("\n".join(lines[-120:]))
+            except OSError as exc:
+                print(f"Could not read eval log: {exc}")
+            raise
