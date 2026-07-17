@@ -33,25 +33,27 @@ def run_experiment(
     server = None
 
     try:
-        server = start_server(
-            exp=exp,
-            models_cfg=models_cfg,
-            containers_cfg=containers_cfg,
-            record_dir=record_dir,
-            log_dir=log_dir,
-        )
+        model_cfg = models_cfg["models"][exp["model"]]
+        if model_cfg.get("run_mode") != "direct_libero":
+            server = start_server(
+                exp=exp,
+                models_cfg=models_cfg,
+                containers_cfg=containers_cfg,
+                record_dir=record_dir,
+                log_dir=log_dir,
+            )
 
-        wait_for_log_pattern(
-            log_path=log_dir / "server.log",
-            process=server,
-            patterns=[
-                "DEBUG: entering serve_forever",
-                "server listening",
-                "Server listening",
-                "Listening",
-            ],
-            timeout_s=360,
-        )
+            wait_for_log_pattern(
+                log_path=log_dir / "server.log",
+                process=server,
+                patterns=[
+                    "DEBUG: entering serve_forever",
+                    "server listening",
+                    "Server listening",
+                    "Listening",
+                ],
+                timeout_s=360,
+            )
 
         run_libero_eval(
             exp=exp,

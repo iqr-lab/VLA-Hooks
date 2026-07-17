@@ -4,3 +4,6 @@
 [submodule "external/openpi-pi0fast-hooks"]
 	path = external/openpi-pi0fast-hooks
 	url = https://github.com/iqr-lab/openpi-pi0fast-hooks
+[submodule "external/openvla-oft-hooks"]
+	path = external/openvla-oft-hooks
+	url = git@github.com:iqr-lab/openvla-oft-hooks.git

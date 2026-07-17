@@ -8,3 +8,10 @@ models:
     repo: external/openpi-pi05-hooks
     serve_policy: scripts/serve_policy.py
     default_policy_config: pi05_libero
+
+  openvla:
+    repo: external/openvla-oft-hooks
+    run_mode: direct_libero
+    eval_script: experiments/robot/libero/run_libero_eval.py
+    default_policy_config: openvla
+    pythonpath: /app

@@ -6,6 +6,7 @@ No model code lives in this repository. Model implementations are included as gi
 
 * `external/openpi-pi05-hooks`
 * `external/openpi-pi0fast-hooks`
+* `external/openvla-oft-hooks`
 
 The runner can:
 
@@ -35,7 +36,8 @@ openpi-inference-recorder/
 │
 ├── external/
 │   ├── openpi-pi05-hooks/
-│   └── openpi-pi0fast-hooks/
+│   ├── openpi-pi0fast-hooks/
+│   └── openvla-oft-hooks/
 │
 ├── recorder/
 │   ├── config.py
@@ -183,6 +185,12 @@ models:
     repo: external/openpi-pi05-hooks
     serve_policy: scripts/serve_policy.py
     default_policy_config: pi05_libero
+
+  openvla:
+    repo: external/openvla-oft-hooks
+    run_mode: direct_libero
+    eval_script: experiments/robot/libero/run_libero_eval.py
+    default_policy_config: openvla
 ```
 
 ## Model Configuration Options

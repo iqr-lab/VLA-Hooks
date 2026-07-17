@@ -1,0 +1,22 @@
+name: openvla_libero_test
+model: openvla
+
+checkpoint: moojink/openvla-7b-oft-finetuned-libero-10
+
+env: LIBERO
+task_suite: libero_10
+num_trials: 1
+
+hook_config: configs/hooks/openvla.yaml
+record_root: /nfs/roberts/scratch/pi_tkf6/as4643/policy_records
+log_root: logs
+
+use_apptainer: true
+
+eval_args:
+  use_l1_regression: true
+  use_diffusion: false
+  use_film: false
+  num_images_in_input: 2
+  use_proprio: true
+  center_crop: true

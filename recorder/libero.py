@@ -12,6 +12,7 @@ def build_libero_command(
     models_cfg: dict[str, Any],
     containers_cfg: dict[str, Any],
     record_dir: Path,
+    log_dir: Path,
 ) -> tuple[list[str], Path]:
     model_name = exp["model"]
     model_cfg = models_cfg["models"][model_name]
@@ -19,10 +20,85 @@ def build_libero_command(
 
     task_suite = exp["task_suite"]
     num_trials = str(exp["num_trials"])
-    port = str(exp["port"])
-    host = exp.get("host", "127.0.0.1")
 
     use_apptainer = exp.get("use_apptainer", containers_cfg.get("use_apptainer", False))
+
+    if model_cfg.get("run_mode") == "direct_libero":
+        eval_script = model_cfg["eval_script"]
+        hook_config = resolve_path(exp["hook_config"])
+        checkpoint = exp["checkpoint"]
+        local_log_dir = log_dir / "openvla"
+        local_log_dir.mkdir(parents=True, exist_ok=True)
+
+        openvla_args = [
+            "--pretrained_checkpoint",
+            str(checkpoint),
+            "--task_suite_name",
+            task_suite,
+            "--num_trials_per_task",
+            num_trials,
+            "--hook_config",
+            str(hook_config),
+            "--hook_output_dir",
+            str(record_dir),
+            "--local_log_dir",
+            str(local_log_dir),
+            "--save_hook_records",
+            "True",
+        ]
+
+        for key, value in exp.get("eval_args", {}).items():
+            openvla_args.extend([f"--{key}", str(value)])
+
+        if not use_apptainer:
+            command = ["python", "-u", eval_script, *openvla_args]
+            return command, repo_path
+
+        libero_sif = containers_cfg["libero_sif"]
+        pythonpath = model_cfg.get("pythonpath", containers_cfg["pythonpath"])
+
+        command = [
+            "apptainer",
+            "exec",
+            "--nv",
+            "--containall",
+            "--bind",
+            f"{repo_path}:/app",
+            "--bind",
+            f"{hook_config}:/app/hooks.yaml",
+            *build_mount_args(containers_cfg),
+            libero_sif,
+            "bash",
+            "-c",
+            " ".join(
+                [
+                    "cd /app &&",
+                    f"export PYTHONPATH={pythonpath} &&",
+                    "export CUDA_VISIBLE_DEVICES=0 &&",
+                    "export PYTHONUNBUFFERED=1 &&",
+                    "export PYTHONFAULTHANDLER=1 &&",
+                    "export MUJOCO_GL=osmesa &&",
+                    "export PYOPENGL_PLATFORM=osmesa &&",
+                    "/.venv/bin/python -u experiments/robot/libero/run_libero_eval.py",
+                    f"--pretrained_checkpoint {checkpoint}",
+                    f"--task_suite_name {task_suite}",
+                    f"--num_trials_per_task {num_trials}",
+                    "--hook_config /app/hooks.yaml",
+                    f"--hook_output_dir {record_dir}",
+                    f"--local_log_dir {local_log_dir}",
+                    "--save_hook_records True",
+                    *[
+                        f"--{key} {value}"
+                        for key, value in exp.get("eval_args", {}).items()
+                    ],
+                ]
+            ),
+        ]
+
+        return command, repo_path
+
+    port = str(exp["port"])
+    host = exp.get("host", "127.0.0.1")
 
     if not use_apptainer:
         command = [
@@ -99,6 +175,7 @@ def run_libero_eval(
         models_cfg=models_cfg,
         containers_cfg=containers_cfg,
         record_dir=record_dir,
+        log_dir=log_dir,
     )
 
     eval_log = log_dir / "eval.log"

@@ -1,14 +1,9 @@
-record:
-  enabled: true
-  add_timestamp: true
-
 hooks:
   enabled:
     - observation_input
     - token_spans
     - prefix_embeddings
     - prefix_final_hidden_state
-    - prefix_gradients
     - action_chunks
     - raw_attention_weights
     - value_vectors
@@ -17,7 +12,7 @@ hooks:
     num_chunks: 1
 
   raw_attention_weights:
-    layers: null
+    layers: [1, 16]
 
   value_vectors:
-    layers: null
+    layers: [1, 16]
