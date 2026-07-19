@@ -1,4 +1,4 @@
-name: pi0fast_libero_test
+name: pi0fast_libero10
 model: pi0fast
 
 policy_config: pi0_fast_libero
