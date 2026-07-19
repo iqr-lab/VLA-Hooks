@@ -20,3 +20,6 @@ use_apptainer: true
 libero_repo: /nfs/roberts/scratch/pi_tkf6/as4643/LIBERO-plus
 libero_container_path: /libero_src
 libero_benchmark_root: /libero_src/libero/libero
+
+eval_args:
+  exclude_language_variations: true

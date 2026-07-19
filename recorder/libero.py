@@ -12,6 +12,24 @@ def _prepend_pythonpath(pythonpath: str, path: str) -> str:
     return ":".join([path, *parts])
 
 
+def _build_prefixed_cli_args(args: dict[str, Any], *, prefix: str) -> list[str]:
+    cli_args: list[str] = []
+    for key, value in args.items():
+        flag = f"{prefix}{key.replace('_', '-')}"
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            if value:
+                cli_args.append(flag)
+            continue
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                cli_args.extend([flag, str(item)])
+            continue
+        cli_args.extend([flag, str(value)])
+    return cli_args
+
+
 def _build_libero_override(
     *,
     exp: dict[str, Any],
@@ -175,6 +193,10 @@ def build_libero_command(
 
     port = str(exp["port"])
     host = exp.get("host", "127.0.0.1")
+    libero_eval_args = _build_prefixed_cli_args(
+        exp.get("eval_args", {}),
+        prefix="--args.",
+    )
 
     if not use_apptainer:
         command = [
@@ -191,6 +213,7 @@ def build_libero_command(
             host,
             "--args.record_dir",
             str(record_dir),
+            *libero_eval_args,
         ]
         return command, repo_path
 
@@ -244,6 +267,7 @@ def build_libero_command(
                 f"--args.port {port}",
                 f"--args.host {host}",
                 f"--args.record_dir {record_dir}",
+                *libero_eval_args,
             ]
         ),
     ]
