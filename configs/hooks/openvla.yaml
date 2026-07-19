@@ -4,6 +4,7 @@ hooks:
     - token_spans
     - prefix_embeddings
     - prefix_final_hidden_state
+    - prefix_gradients
     - action_chunks
     - raw_attention_weights
     - value_vectors

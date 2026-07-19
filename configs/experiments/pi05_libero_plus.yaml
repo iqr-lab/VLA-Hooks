@@ -8,7 +8,7 @@ env: LIBERO
 task_suite: libero_10
 num_trials: 1
 
-port: 21000
+port: auto
 host: 127.0.0.1
 
 hook_config: configs/hooks/pi05.yaml
