@@ -1,4 +1,4 @@
-partition: scavenge_gpu
+partition: gpu_h200
 gpus: 1
 cpus_per_task: 4
 mem: 256G

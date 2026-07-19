@@ -6,6 +6,61 @@ from recorder.paths import resolve_path
 from recorder.server import build_mount_args
 
 
+def _prepend_pythonpath(pythonpath: str, path: str) -> str:
+    parts = [part for part in pythonpath.split(":") if part]
+    parts = [part for part in parts if part != path]
+    return ":".join([path, *parts])
+
+
+def _build_libero_override(
+    *,
+    exp: dict[str, Any],
+    model_cfg: dict[str, Any],
+    containers_cfg: dict[str, Any],
+    pythonpath: str,
+) -> tuple[list[str], list[str], str]:
+    libero_repo = exp.get(
+        "libero_repo",
+        model_cfg.get("libero_repo", containers_cfg.get("libero_repo")),
+    )
+    if not libero_repo:
+        return [], [], pythonpath
+
+    libero_repo_path = resolve_path(libero_repo)
+    libero_container_path = exp.get(
+        "libero_container_path",
+        model_cfg.get(
+            "libero_container_path",
+            containers_cfg.get("libero_container_path", "/libero_src"),
+        ),
+    )
+    benchmark_root = exp.get(
+        "libero_benchmark_root",
+        model_cfg.get(
+            "libero_benchmark_root",
+            containers_cfg.get(
+                "libero_benchmark_root",
+                f"{libero_container_path}/libero/libero",
+            ),
+        ),
+    )
+
+    bind_args = ["--bind", f"{libero_repo_path}:{libero_container_path}"]
+    config_cmd = [
+        "mkdir -p /tmp/libero &&",
+        "printf '%s\\n'",
+        f"'benchmark_root: {benchmark_root}'",
+        f"'bddl_files: {benchmark_root}/./bddl_files'",
+        f"'init_states: {benchmark_root}/./init_files'",
+        f"'datasets: {benchmark_root}/../datasets'",
+        f"'assets: {benchmark_root}/./assets'",
+        "> /tmp/libero/config.yaml &&",
+        "export LIBERO_CONFIG_PATH=/tmp/libero &&",
+    ]
+
+    return bind_args, config_cmd, _prepend_pythonpath(pythonpath, libero_container_path)
+
+
 def build_libero_command(
     *,
     exp: dict[str, Any],
@@ -68,32 +123,12 @@ def build_libero_command(
                 f"export TORCH_HOME={cache_dir}/torch &&",
                 f"export XDG_CACHE_HOME={cache_dir}/xdg &&",
             ]
-        libero_repo = model_cfg.get("libero_repo")
-        libero_bind_args = []
-        libero_config_cmd = []
-        if libero_repo:
-            libero_repo_path = resolve_path(libero_repo)
-            libero_container_path = model_cfg.get("libero_container_path", "/libero")
-            pythonpath_parts = [part for part in pythonpath.split(":") if part]
-            if libero_container_path not in pythonpath_parts:
-                pythonpath_parts.append(libero_container_path)
-            pythonpath = ":".join(pythonpath_parts)
-
-            benchmark_root = model_cfg.get(
-                "libero_benchmark_root", f"{libero_container_path}/libero"
-            )
-            libero_bind_args = ["--bind", f"{libero_repo_path}:{libero_container_path}"]
-            libero_config_cmd = [
-                "mkdir -p /tmp/libero &&",
-                "printf '%s\\n'",
-                f"'benchmark_root: {benchmark_root}'",
-                f"'bddl_files: {benchmark_root}/./bddl_files'",
-                f"'init_states: {benchmark_root}/./init_files'",
-                f"'datasets: {benchmark_root}/../datasets'",
-                f"'assets: {benchmark_root}/./assets'",
-                "> /tmp/libero/config.yaml &&",
-                "export LIBERO_CONFIG_PATH=/tmp/libero &&",
-            ]
+        libero_bind_args, libero_config_cmd, pythonpath = _build_libero_override(
+            exp=exp,
+            model_cfg=model_cfg,
+            containers_cfg=containers_cfg,
+            pythonpath=pythonpath,
+        )
 
         command = [
             "apptainer",
@@ -161,6 +196,25 @@ def build_libero_command(
 
     libero_sif = containers_cfg["libero_sif"]
     pythonpath = containers_cfg["pythonpath"]
+    libero_bind_args, libero_config_cmd, pythonpath = _build_libero_override(
+        exp=exp,
+        model_cfg=model_cfg,
+        containers_cfg=containers_cfg,
+        pythonpath=pythonpath,
+    )
+
+    if not libero_config_cmd:
+        libero_config_cmd = [
+            "mkdir -p /tmp/libero &&",
+            "printf '%s\\n'",
+            "'benchmark_root: /app/third_party/libero/libero/libero'",
+            "'bddl_files: /app/third_party/libero/libero/libero/./bddl_files'",
+            "'init_states: /app/third_party/libero/libero/libero/./init_files'",
+            "'datasets: /app/third_party/libero/libero/libero/../datasets'",
+            "'assets: /app/third_party/libero/libero/libero/./assets'",
+            "> /tmp/libero/config.yaml &&",
+            "export LIBERO_CONFIG_PATH=/tmp/libero &&",
+        ]
 
     command = [
         "apptainer",
@@ -169,6 +223,7 @@ def build_libero_command(
         "--containall",
         "--bind",
         f"{repo_path}:/app",
+        *libero_bind_args,
         *build_mount_args(containers_cfg),
         libero_sif,
         "bash",
@@ -180,14 +235,7 @@ def build_libero_command(
                 "export CUDA_VISIBLE_DEVICES=0 &&",
                 "export PYTHONUNBUFFERED=1 &&",
                 "export PYTHONFAULTHANDLER=1 &&",
-                "mkdir -p /tmp/libero &&",
-                "printf '%s\\n'",
-                "'benchmark_root: /app/third_party/libero/libero/libero'",
-                "'bddl_files: /app/third_party/libero/libero/libero/./bddl_files'",
-                "'init_states: /app/third_party/libero/libero/libero/./init_files'",
-                "'datasets: /app/third_party/libero/libero/libero/../datasets'",
-                "'assets: /app/third_party/libero/libero/libero/./assets'",
-                "> /tmp/libero/config.yaml &&",
+                *libero_config_cmd,
                 "export MUJOCO_GL=osmesa &&",
                 "export PYOPENGL_PLATFORM=osmesa &&",
                 "/.venv/bin/python -u examples/libero/main.py",

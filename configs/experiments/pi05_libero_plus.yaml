@@ -1,4 +1,4 @@
-name: pi05_libero10
+name: pi05_libero_plus
 model: pi05
 
 policy_config: pi05_libero
@@ -6,7 +6,7 @@ checkpoint: /nfs/roberts/scratch/pi_tkf6/zs377/checkpoints/pi05_libero
 
 env: LIBERO
 task_suite: libero_10
-num_trials: 10
+num_trials: 1
 
 port: 21000
 host: 127.0.0.1
@@ -16,4 +16,7 @@ record_root: /nfs/roberts/scratch/pi_tkf6/as4643/policy_records
 log_root: logs
 
 use_apptainer: true
-libero_repo: null
+
+libero_repo: /nfs/roberts/scratch/pi_tkf6/as4643/LIBERO-plus
+libero_container_path: /libero_src
+libero_benchmark_root: /libero_src/libero/libero

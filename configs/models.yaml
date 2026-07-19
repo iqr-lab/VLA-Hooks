@@ -17,6 +17,3 @@ models:
     default_policy_config: openvla
     pythonpath: /app
     cache_dir: /nfs/roberts/scratch/pi_tkf6/as4643/cache/openvla
-    libero_repo: external/openpi-pi05-hooks/third_party/libero
-    libero_container_path: /libero_src
-    libero_benchmark_root: /libero_src/libero/libero
