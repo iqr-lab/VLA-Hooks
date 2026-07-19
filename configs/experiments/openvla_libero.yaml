@@ -1,11 +1,11 @@
-name: openvla_libero_test
+name: openvla_libero10
 model: openvla
 
 checkpoint: moojink/openvla-7b-oft-finetuned-libero-10
 
 env: LIBERO
 task_suite: libero_10
-num_trials: 1
+num_trials: 10
 
 hook_config: configs/hooks/openvla.yaml
 record_root: /nfs/roberts/scratch/pi_tkf6/as4643/policy_records
