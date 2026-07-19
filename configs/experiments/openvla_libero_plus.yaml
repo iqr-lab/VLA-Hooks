@@ -1,4 +1,4 @@
-name: openvla_libero_test
+name: openvla_libero_plus
 model: openvla
 
 checkpoint: moojink/openvla-7b-oft-finetuned-libero-10
@@ -13,7 +13,7 @@ log_root: logs
 
 use_apptainer: true
 
-libero_repo: external/openpi-pi05-hooks/third_party/libero
+libero_repo: /nfs/roberts/scratch/pi_tkf6/as4643/LIBERO-plus
 libero_container_path: /libero_src
 libero_benchmark_root: /libero_src/libero/libero
 
@@ -24,3 +24,4 @@ eval_args:
   num_images_in_input: 2
   use_proprio: true
   center_crop: true
+  exclude_language_variations: true
