@@ -2,6 +2,15 @@ record:
   enabled: true
   add_timestamp: true
 
+  # Compressed record container: writes step_N.pirec instead of step_N.npy.
+  # Read with openpi.policies.record_io.load_record(path), which also accepts
+  # legacy .npy. Set compress: false to restore the old .npy output.
+  compress: true
+  float_dtype: auto      # auto (lossless) | bf16 | f16 | fp8_e4m3 | none
+  codec: zstd            # zstd, falling back to zlib if zstandard is missing
+  level: 19
+  shuffle: true
+
 hooks:
   enabled:
     - observation_input

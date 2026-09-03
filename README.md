@@ -307,6 +307,45 @@ Example:
 logs/pi05_libero_20260618_203423
 ```
 
+## Record File Format
+
+`openpi-pi0fast-hooks` writes one record per `client.infer(...)` call, numbered
+contiguously from zero:
+
+```text
+record_root/name_YYYYMMDD_HHMMSS/
+├── step_0.pirec
+├── step_1.pirec
+├── ...
+└── output/
+    ├── hooks.yaml
+    └── hook_manifest.json
+```
+
+`.pirec` is a compressed container: each array is narrowed in dtype,
+byte-shuffled so exponent bytes group together, then compressed. It is roughly
+2.8x smaller than the equivalent `.npy` and, at the default
+`float_dtype: auto`, lossless.
+
+Read records with the loader, which accepts `.pirec` and legacy `.npy` alike:
+
+```python
+from openpi.policies import record_io
+
+record = record_io.load_record(record_dir / "step_0.pirec")
+```
+
+Arrays come back with the same keys, shapes and dtypes as the old `.npy`
+records, so existing analysis code needs no changes beyond the loader call and
+the file suffix.
+
+Compression is configured in the hook config (see *Configure Hooks*). Setting
+`compress: false` restores `step_N.npy` output.
+
+> `zstandard` must be installed inside the server container to use the zstd
+> codec. If it is missing the recorder falls back to zlib automatically, which
+> costs about 1% of the ratio — no image rebuild is required.
+
 ---
 
 # 5. Configure Hooks
@@ -342,6 +381,29 @@ recording:
 ```
 
 Available hooks depend on what is implemented in the selected model repository.
+
+The `record:` block in the same file controls how records are written. For
+`openpi-pi0fast-hooks`:
+
+| Key                  | Default  | Meaning                                                        |
+| -------------------- | -------- | -------------------------------------------------------------- |
+| `compress`           | `true`   | Write `step_N.pirec`. `false` writes legacy `step_N.npy`.       |
+| `float_dtype`        | `auto`   | `auto` (lossless), `bf16`, `f16`, `fp8_e4m3`, `none`.           |
+| `codec`              | `zstd`   | `zstd` or `zlib`.                                               |
+| `level`              | `19`     | Codec level. Clamped to 9 for zlib.                             |
+| `shuffle`            | `true`   | Byte-shuffle before compressing.                                |
+| `async_write`        | `true`   | Encode and write on a background thread.                        |
+| `max_pending_writes` | `4`      | Queue depth before inference blocks on the writer.              |
+
+`float_dtype: auto` narrows float32 to bfloat16 only where the round-trip is
+bit-exact, which covers every tensor the model produced in bfloat16. The lossy
+settings trade precision for size: `fp8_e4m3` reaches about 4.4x versus `.npy`.
+
+Records are dominated by the largest hooks. With `prefix_embeddings` and
+`prefix_gradients` enabled they account for well over half of every record, so
+disabling hooks you do not analyse saves more than any codec setting.
+
+The other model repositories ignore these keys and keep writing `.npy`.
 
 ---
 
