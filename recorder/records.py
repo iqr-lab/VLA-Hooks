@@ -9,6 +9,7 @@ module locates it in the configured submodule and puts it on `sys.path`.
 from __future__ import annotations
 
 import dataclasses
+import importlib
 import json
 import struct
 import sys
@@ -24,15 +25,30 @@ _HEADER_LEN = struct.Struct("<I")
 
 RECORD_SUFFIXES = (".pirec", ".npy")
 
+# Where record_io lives in each kind of model repo, as
+# (path of the file inside the repo, sys.path root inside the repo, module name).
+# The openpi forks ship it as a package module under src/; openvla-oft keeps its
+# hook code under experiments/.
+_RECORD_IO_LAYOUTS = (
+    (Path("src/openpi/policies/record_io.py"), Path("src"), "openpi.policies.record_io"),
+    (
+        Path("experiments/robot/openvla_hooks/record_io.py"),
+        Path("."),
+        "experiments.robot.openvla_hooks.record_io",
+    ),
+)
+
 
 def find_record_io(models_path: str | Path = "configs/models.yaml"):
     """Import `record_io` from whichever model repo provides it.
 
-    The model repos are git submodules under `external/`, so this fails with an
-    actionable message when they have not been checked out.
+    All three model repos ship an identical record_io, just in different places,
+    so the first one found wins. They are git submodules under `external/`, so
+    this fails with an actionable message when none have been checked out.
     """
-    if "openpi.policies.record_io" in sys.modules:
-        return sys.modules["openpi.policies.record_io"]
+    for module_name in (name for _, _, name in _RECORD_IO_LAYOUTS):
+        if module_name in sys.modules:
+            return sys.modules[module_name]
 
     models_cfg = load_yaml(resolve_path(models_path))
     searched: list[Path] = []
@@ -41,16 +57,16 @@ def find_record_io(models_path: str | Path = "configs/models.yaml"):
         repo = model_cfg.get("repo")
         if repo is None:
             continue
-        src = resolve_path(repo) / "src"
-        candidate = src / "openpi" / "policies" / "record_io.py"
-        searched.append(candidate)
-        if not candidate.exists():
-            continue
-        if str(src) not in sys.path:
-            sys.path.insert(0, str(src))
-        from openpi.policies import record_io
-
-        return record_io
+        repo_dir = resolve_path(repo)
+        for rel_file, rel_root, module_name in _RECORD_IO_LAYOUTS:
+            candidate = repo_dir / rel_file
+            searched.append(candidate)
+            if not candidate.exists():
+                continue
+            root = str((repo_dir / rel_root).resolve())
+            if root not in sys.path:
+                sys.path.insert(0, root)
+            return importlib.import_module(module_name)
 
     listing = "\n  ".join(str(p) for p in searched) or "(no repos listed in models.yaml)"
     raise FileNotFoundError(
@@ -128,14 +144,25 @@ def _describe(key: str, value: Any, stored: int | None) -> Field:
     )
 
 
-def read_schema(path: str | Path, *, models_path: str | Path = "configs/models.yaml") -> Schema:
-    """Load one record and describe every field in it."""
+def load_record(
+    path: str | Path, *, models_path: str | Path = "configs/models.yaml"
+) -> dict[str, Any]:
+    """Load one record as a flat dict, handling both `.pirec` and legacy `.npy`.
+
+    This is the raw record; use :func:`read_schema` when you only want to
+    describe it without materializing every array for inspection.
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"No such record: {path}")
 
-    record_io = find_record_io(models_path)
-    record = record_io.load_record(path)
+    return find_record_io(models_path).load_record(path)
+
+
+def read_schema(path: str | Path, *, models_path: str | Path = "configs/models.yaml") -> Schema:
+    """Load one record and describe every field in it."""
+    path = Path(path)
+    record = load_record(path, models_path=models_path)
 
     stored: dict[str, int] = {}
     codec = float_dtype = None
