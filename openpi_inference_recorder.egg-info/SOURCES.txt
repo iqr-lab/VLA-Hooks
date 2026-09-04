@@ -10,6 +10,7 @@ recorder/config.py
 recorder/libero.py
 recorder/paths.py
 recorder/process.py
+recorder/records.py
 recorder/run.py
 recorder/server.py
 recorder/slurm.py
