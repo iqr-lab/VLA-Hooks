@@ -298,6 +298,7 @@ def inspect_record_field(
     )
 
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
