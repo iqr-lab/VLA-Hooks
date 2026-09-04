@@ -100,6 +100,9 @@ class Field:
     nbytes: int  # in memory, after loading
     stored: int | None  # compressed bytes in the file, when known
     value: Any = None  # kept only for scalars and short values
+    # True for a list/dict that was expanded into child fields. Its nbytes is the
+    # recursive total of those children, so it must not be summed with them.
+    is_container: bool = False
 
     @property
     def ratio(self) -> float | None:
@@ -118,19 +121,23 @@ class Schema:
 
     @property
     def nbytes(self) -> int:
-        return sum(f.nbytes for f in self.fields)
+        return sum(f.nbytes for f in self.fields if not f.is_container)
 
     @property
     def ratio(self) -> float | None:
         return self.nbytes / self.file_size if self.file_size else None
 
 
-def _describe(key: str, value: Any, stored: int | None) -> Field:
+def _leaf_field(key: str, value: Any, stored: int | None) -> Field:
     import numpy as np
 
     if isinstance(value, np.ndarray) and value.dtype != object:
         scalar = value.item() if value.size == 1 else None
         return Field(key, str(value.dtype), tuple(value.shape), int(value.nbytes), stored, scalar)
+
+    if hasattr(value, "detach") and hasattr(value, "numel"):  # torch.Tensor
+        nbytes = int(value.numel() * value.element_size())
+        return Field(key, str(value.dtype), tuple(value.shape), nbytes, stored)
 
     # Scalars, None, strings, and anything else the hooks emitted.
     text = repr(value)
@@ -142,6 +149,42 @@ def _describe(key: str, value: Any, stored: int | None) -> Field:
         stored,
         value if len(text) <= 120 else None,
     )
+
+
+def _describe(key: str, value: Any, stored: int | None, *, depth: int = 0) -> list[Field]:
+    """Describe one record entry, descending into lists and dicts.
+
+    `hook_records` arrives as a list of dicts because the flatten step only
+    recurses into dicts, so it reaches us as a single pickled leaf. Expanding it
+    here is what makes the arrays inside it visible. The container row keeps the
+    stored (compressed) size, since that is only known for the blob as a whole;
+    its children report memory only.
+    """
+    import numpy as np
+
+    is_array = isinstance(value, np.ndarray) and value.dtype != object
+    if is_array or depth >= _MAX_EXPAND_DEPTH or not isinstance(value, (list, tuple, dict)):
+        return [_leaf_field(key, value, stored)]
+
+    if isinstance(value, dict):
+        items = list(value.items())
+        label = f"dict[{len(items)}]"
+    else:
+        items = list(enumerate(value))
+        label = f"{type(value).__name__}[{len(items)}]"
+
+    children: list[Field] = []
+    for child_key, child_value in items:
+        children.extend(_describe(f"{key}/{child_key}", child_value, None, depth=depth + 1))
+
+    if not children:
+        return [_leaf_field(key, value, stored)]
+
+    total = sum(f.nbytes for f in children if not f.is_container)
+    return [Field(key, label, None, total, stored, None, is_container=True), *children]
+
+
+_MAX_EXPAND_DEPTH = 8
 
 
 def load_record(
@@ -173,7 +216,9 @@ def read_schema(path: str | Path, *, models_path: str | Path = "configs/models.y
             float_dtype = header.get("float_dtype")
             stored = {e["key"]: e["nbytes"] for e in header.get("entries", [])}
 
-    fields = [_describe(k, v, stored.get(k)) for k, v in record.items()]
+    fields: list[Field] = []
+    for key, value in record.items():
+        fields.extend(_describe(key, value, stored.get(key)))
     return Schema(
         path=path,
         file_size=path.stat().st_size,
