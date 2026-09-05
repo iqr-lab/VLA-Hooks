@@ -2,7 +2,7 @@ name: pi05_libero10
 model: pi05
 
 policy_config: pi05_libero
-checkpoint: /nfs/roberts/scratch/pi_tkf6/zs377/checkpoints/pi05_libero
+checkpoint: /nfs/roberts/scratch/pi_tkf6/as4643/checkpoints/pi05_libero
 
 env: LIBERO
 task_suite: libero_10

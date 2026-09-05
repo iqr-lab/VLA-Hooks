@@ -2,7 +2,7 @@ name: pi0fast_libero_plus
 model: pi0fast
 
 policy_config: pi0_fast_libero
-checkpoint: /nfs/roberts/scratch/pi_tkf6/zs377/checkpoints/pi0_fast_libero/29999
+checkpoint: /nfs/roberts/scratch/pi_tkf6/as4643/checkpoints/pi0_fast_libero/29999
 
 env: LIBERO
 task_suite: libero_10
