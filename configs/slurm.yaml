@@ -2,4 +2,4 @@ partition: gpu_h200
 gpus: 1
 cpus_per_task: 4
 mem: 256G
-time: "1-00:00:00"
+time: "4:00:00"

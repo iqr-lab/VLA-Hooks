@@ -16,7 +16,6 @@ hooks:
   enabled:
     - observation_input
     - token_spans
-    - prefix_embeddings
     - prefix_final_hidden_state
     - prefix_gradients
     - action_chunks
@@ -27,7 +26,7 @@ hooks:
     num_chunks: 1
 
   raw_attention_weights:
-    layers: [1, 16]
+    layers: null
 
   value_vectors:
-    layers: [1, 16]
+    layers: null
